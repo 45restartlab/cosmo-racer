@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#040210">
+<title>🚀 COSMO RACER</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #040210;
+  --cyan:   #00f5ff;
+  --pink:   #ff3aaa;
+  --purple: #8833ff;
+  --yellow: #ffe040;
+  --green:  #33ff99;
+  --text:   #e0d8ff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Zen Maru Gothic', sans-serif;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── メインCanvas ── */
+#gameCanvas {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  image-rendering: pixelated;
+}
+
+/* ── HUD ── */
+.hud {
+  position: fixed;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 14px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-box {
+  background: rgba(4,2,16,0.7);
+  border: 1px solid rgba(0,245,255,0.3);
+  border-radius: 10px;
+  padding: 5px 12px;
+  backdrop-filter: blur(4px);
+}
+
+.hud-label { font-size: 9px; color: rgba(0,245,255,0.6); letter-spacing: 2px; text-transform: uppercase; }
+.hud-val   { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: var(--cyan); line-height: 1; }
+.hud-val.speed-val { color: var(--yellow); }
+.hud-val.lap-val   { color: var(--pink); }
+
+/* スピードメーター */
+.speed-bar-wrap {
+  position: fixed;
+  bottom: 90px; left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 388px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.speed-bar-bg {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.speed-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
+  transition: width 0.1s ease;
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+/* ── コントロール ── */
+.controls {
+  position: fixed;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
+  padding: 8px 16px 16px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.ctrl-btn {
+  flex: 1;
+  padding: 16px 0;
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid rgba(0,245,255,0.25);
+  border-radius: 14px;
+  font-size: 22px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: all 0.1s;
+  box-shadow: 0 0 10px rgba(0,245,255,0.1);
+}
+
+.ctrl-btn:active, .ctrl-btn.pressed {
+  background: rgba(0,245,255,0.15);
+  border-color: var(--cyan);
+  box-shadow: 0 0 20px rgba(0,245,255,0.3);
+  transform: scale(0.96);
+}
+
+.ctrl-btn.accel {
+  flex: 2;
+  background: rgba(255,58,170,0.1);
+  border-color: rgba(255,58,170,0.3);
+}
+
+.ctrl-btn.accel:active, .ctrl-btn.accel.pressed {
+  background: rgba(255,58,170,0.2);
+  border-color: var(--pink);
+  box-shadow: 0 0 20px rgba(255,58,170,0.4);
+}
+
+/* ── オーバーレイ ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4,2,16,0.9);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.overlay-card {
+  background: linear-gradient(135deg, rgba(20,8,50,0.95), rgba(4,2,16,0.95));
+  border: 2px solid rgba(0,245,255,0.3);
+  border-radius: 28px;
+  padding: 28px 24px 24px;
+  text-align: center;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 0 60px rgba(0,245,255,0.15), 0 0 120px rgba(136,51,255,0.1);
+}
+
+.ov-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 40px;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 50%, var(--pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(0,245,255,0.5));
+  margin-bottom: 6px;
+}
+
+.ov-sub {
+  font-size: 12px;
+  color: rgba(224,216,255,0.6);
+  margin-bottom: 20px;
+  line-height: 1.8;
+}
+
+.ov-stats {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.ov-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(0,245,255,0.15);
+  border-radius: 12px;
+  padding: 10px 8px;
+}
+
+.ov-stat-label { font-size: 9px; color: rgba(0,245,255,0.5); letter-spacing: 1px; margin-bottom: 2px; }
+.ov-stat-val   { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--yellow); line-height: 1; }
+
+.start-btn {
+  width: 100%;
+  padding: 17px;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+  border: none;
+  border-radius: 16px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0,245,255,0.3);
+  transition: all 0.15s;
+}
+
+.start-btn:active { transform: scale(0.97); }
+
+/* ── キャラ表示 ── */
+.pilot-wrap {
+  position: fixed;
+  bottom: 85px;
+  right: 16px;
+  z-index: 10;
+  pointer-events: none;
+  animation: pilotBob 2s ease-in-out infinite;
+}
+
+@keyframes pilotBob {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+.pilot-speech {
+  position: absolute;
+  top: -28px; right: 0;
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: #1a0838;
+  white-space: nowrap;
+  font-weight: 700;
+  animation: speechFade 3s ease infinite;
+}
+
+@keyframes speechFade {
+  0%,80%,100% { opacity: 1; }
+  90% { opacity: 0; }
+}
+
+.pilot-speech::after {
+  content: '';
+  position: absolute;
+  bottom: -5px; right: 12px;
+  border: 3px solid transparent;
+  border-top-color: rgba(255,255,255,0.9);
+}
+
+/* ── タイルト矢印 ── */
+.tilt-indicator {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-box">
+    <div class="hud-label">SPEED</div>
+    <div class="hud-val speed-val" id="speedVal">0</div>
+  </div>
+  <div class="hud-box">
+    <div class="hud-label">SCORE</div>
+    <div class="hud-val" id="scoreVal">0</div>
+  </div>
+  <div class="hud-box">
+    <div class="hud-label">LAP</div>
+    <div class="hud-val lap-val" id="lapVal">1/3</div>
+  </div>
+</div>
+
+<!-- ゲームCanvas -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- スピードバー -->
+<div class="speed-bar-wrap">
+  <div class="speed-bar-bg">
+    <div class="speed-bar-fill" id="speedBar" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- パイロットキャラ -->
+<div class="pilot-wrap" id="pilotWrap">
+  <div class="pilot-speech" id="pilotSpeech">レッツゴー！</div>
+  <svg width="52" height="64" viewBox="0 0 52 64" fill="none">
+    <!-- ヘルメット -->
+    <ellipse cx="26" cy="22" rx="18" ry="20" fill="#1a0838"/>
+    <ellipse cx="26" cy="22" rx="14" ry="16" fill="#0a0220"/>
+    <!-- バイザー（シールド） -->
+    <ellipse cx="26" cy="24" rx="11" ry="9" fill="#00e5ff" opacity="0.3"/>
+    <ellipse cx="26" cy="24" rx="11" ry="9" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+    <!-- 顔 -->
+    <ellipse cx="26" cy="24" rx="9" ry="8" fill="#f9d0b8"/>
+    <!-- 目 -->
+    <ellipse cx="22" cy="23" rx="3" ry="3.5" fill="white"/>
+    <ellipse cx="30" cy="23" rx="3" ry="3.5" fill="white"/>
+    <circle cx="22.5" cy="23.5" r="2" fill="#5533cc"/>
+    <circle cx="30.5" cy="23.5" r="2" fill="#5533cc"/>
+    <circle cx="23" cy="23" r="0.8" fill="white"/>
+    <circle cx="31" cy="23" r="0.8" fill="white"/>
+    <!-- 口 -->
+    <path d="M22 29 Q26 32 30 29" stroke="#cc6644" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <!-- ほっぺ -->
+    <circle cx="18" cy="27" r="3.5" fill="#ff8888" opacity="0.3"/>
+    <circle cx="34" cy="27" r="3.5" fill="#ff8888" opacity="0.3"/>
+    <!-- ヘルメット装飾 -->
+    <path d="M12 18 Q14 8 26 6 Q38 8 40 18" stroke="#00e5ff" stroke-width="2" fill="none" opacity="0.6"/>
+    <circle cx="26" cy="6" r="3" fill="#ff3aaa"/>
+    <!-- 髪（ヘルメットから少し） -->
+    <path d="M10 20 Q8 28 10 34" stroke="#cc4488" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M42 20 Q44 28 42 34" stroke="#cc4488" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <!-- スーツ -->
+    <rect x="14" y="40" width="24" height="20" rx="8" fill="#1a0060"/>
+    <!-- スーツ装飾 -->
+    <line x1="26" y1="40" x2="26" y2="60" stroke="#00e5ff" stroke-width="1.5" opacity="0.5"/>
+    <rect x="20" y="44" width="5" height="3" rx="1" fill="#00e5ff" opacity="0.4"/>
+    <rect x="27" y="44" width="5" height="3" rx="1" fill="#ff3aaa" opacity="0.4"/>
+    <!-- 首 -->
+    <rect x="22" y="36" width="8" height="7" rx="3" fill="#f9d0b8"/>
+  </svg>
+</div>
+
+<!-- コントロール -->
+<div class="controls">
+  <button class="ctrl-btn" id="btnLeft"  ontouchstart="setKey('left',true)" ontouchend="setKey('left',false)">◀</button>
+  <button class="ctrl-btn accel" id="btnAccel" ontouchstart="setKey('accel',true)" ontouchend="setKey('accel',false)">🚀 BOOST</button>
+  <button class="ctrl-btn" id="btnRight" ontouchstart="setKey('right',true)" ontouchend="setKey('right',false)">▶</button>
+</div>
+
+<!-- オーバーレイ -->
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div style="font-size:52px;margin-bottom:8px">🚀</div>
+    <div class="ov-title" id="ovTitle">COSMO RACER</div>
+    <div class="ov-sub" id="ovSub">
+      宇宙コースを疾走せよ！<br>
+      ◀ ▶ で操舵　BOOST で加速<br>
+      <span style="color:rgba(0,245,255,0.7)">※スマホを傾けても操作できるよ</span>
+    </div>
+    <div class="ov-stats" id="ovStats" style="display:none">
+      <div class="ov-stat"><div class="ov-stat-label">SCORE</div><div class="ov-stat-val" id="ovScore">0</div></div>
+      <div class="ov-stat"><div class="ov-stat-label">BEST</div><div class="ov-stat-val" id="ovBest">0</div></div>
+      <div class="ov-stat"><div class="ov-stat-label">MAX SPD</div><div class="ov-stat-val" id="ovMaxSpd">0</div></div>
+    </div>
+    <button class="start-btn" onclick="startGame()">★ START RACE ★</button>
+  </div>
+</div>
+
+<script>
+// ── Canvas設定 ──
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const W = 420, H = window.innerHeight;
+canvas.width  = W;
+canvas.height = H;
+canvas.style.height = H + 'px';
+
+// ── 定数 ──
+const HORIZON   = H * 0.42;
+const ROAD_W_FAR  = W * 0.08;
+const ROAD_W_NEAR = W * 1.1;
+const SEG_COUNT = 200;
+const SEG_LEN   = 180;
+const CAM_DEPTH = 0.84;
+const MAX_SPEED = 220;
+const ACCEL     = 3.2;
+const DECEL     = 2.0;
+const TURN_SPD  = 0.03;
+
+// ── 状態 ──
+let pos      = 0;
+let speed    = 0;
+let playerX  = 0;
+let score    = 0;
+let best     = parseInt(localStorage.getItem('cosmo_race_best') || '0');
+let lap      = 1;
+let maxLaps  = 3;
+let maxSpeed = 0;
+let running  = false;
+let frameId  = null;
+let tilt     = 0; // ジャイロ
+
+const keys = { left: false, right: false, accel: false };
+
+function setKey(k, v) { keys[k] = v; }
+
+// ── セグメント生成 ──
+function buildSegments() {
+  const segs = [];
+  for (let i = 0; i < SEG_COUNT; i++) {
+    // カーブ
+    let curve = 0;
+    if      (i > 20  && i < 50)  curve =  0.8;
+    else if (i > 60  && i < 90)  curve = -1.0;
+    else if (i > 110 && i < 140) curve =  1.2;
+    else if (i > 150 && i < 170) curve = -0.6;
+
+    // 高低差（うねり）
+    let hill = 0;
+    if (i > 30  && i < 60)  hill =  0.6;
+    if (i > 80  && i < 110) hill = -0.5;
+    if (i > 130 && i < 160) hill =  0.8;
+
+    // 色
+    const isAlt = Math.floor(i / 4) % 2 === 0;
+    segs.push({
+      index: i,
+      curve,
+      hill,
+      color: {
+        road:   isAlt ? '#1a0060' : '#0d0040',
+        edge:   isAlt ? '#00e5ff' : '#8833ff',
+        stripe: isAlt ? '#ff3aaa' : null,
+        grass:  isAlt ? '#0a0030' : '#060020',
+      },
+      obstacles: [],
+    });
+  }
+
+  // 障害物（隕石・エネミー機）
+  const obsTypes = ['☄️','🛸','⚡','💫'];
+  for (let i = 10; i < SEG_COUNT; i += 7) {
+    if (Math.random() < 0.4) {
+      segs[i].obstacles.push({
+        x: (Math.random() - 0.5) * 1.6,
+        type: obsTypes[Math.floor(Math.random()*obsTypes.length)],
+        hit: false,
+      });
+    }
+  }
+  return segs;
+}
+
+let segments = buildSegments();
+
+// ── プロジェクション ──
+function project(segIdx, camX, camY, camZ, camDepth, width, height, roadWidth) {
+  const seg = segments[segIdx % SEG_COUNT];
+  const worldX = camX - seg.curve * camZ;
+  const worldY = camY + seg.hill * (roadWidth / 2);
+  const worldZ = segIdx * SEG_LEN - camZ;
+
+  if (worldZ <= 0) return null;
+
+  const scale  = camDepth / worldZ;
+  const screenX = Math.round((width/2) + (scale * worldX * width/2));
+  const screenY = Math.round((height/2) - (scale * worldY * height/2));
+  const screenW = Math.round(scale * roadWidth * width/2);
+
+  return { scale, x: screenX, y: screenY, w: screenW };
+}
+
+// ── 描画 ──
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // 宇宙背景
+  drawSpace();
+
+  const startSeg = Math.floor(pos / SEG_LEN) % SEG_COUNT;
+  const camZ     = pos % SEG_LEN;
+  const camX     = playerX * W * 0.5;
+  const camY     = 600;
+  const roadW    = W * 3.2;
+
+  // 前のセグメントから遠い順に描画
+  const projCache = [];
+  for (let i = 100; i > 0; i--) {
+    const segIdx = (startSeg + i) % SEG_COUNT;
+    const p = project(startSeg + i, camX, camY, camZ, CAM_DEPTH * SEG_LEN, W, H, roadW);
+    if (p) projCache[i] = { p, seg: segments[segIdx], segIdx };
+  }
+
+  for (let i = 99; i > 0; i--) {
+    const curr = projCache[i];
+    const next = projCache[i+1];
+    if (!curr || !next) continue;
+
+    const c = curr;
+    const n = next;
+
+    // 草
+    ctx.fillStyle = c.seg.color.grass;
+    ctx.fillRect(0, n.p.y, W, c.p.y - n.p.y);
+
+    // 道路台形
+    drawTrapezoid(
+      n.p.x - n.p.w, n.p.y,
+      n.p.x + n.p.w, n.p.y,
+      c.p.x + c.p.w, c.p.y,
+      c.p.x - c.p.w, c.p.y,
+      c.seg.color.road
+    );
+
+    // エッジライン
+    const edgeW = Math.max(2, c.p.w * 0.06);
+    drawTrapezoid(
+      n.p.x - n.p.w, n.p.y,
+      n.p.x - n.p.w + edgeW*2, n.p.y,
+      c.p.x - c.p.w + edgeW*2, c.p.y,
+      c.p.x - c.p.w, c.p.y,
+      c.seg.color.edge
+    );
+    drawTrapezoid(
+      n.p.x + n.p.w - edgeW*2, n.p.y,
+      n.p.x + n.p.w, n.p.y,
+      c.p.x + c.p.w, c.p.y,
+      c.p.x + c.p.w - edgeW*2, c.p.y,
+      c.seg.color.edge
+    );
+
+    // センターライン（ストライプ）
+    if (c.seg.color.stripe) {
+      const sw = Math.max(1, c.p.w * 0.03);
+      drawTrapezoid(
+        n.p.x - sw, n.p.y,
+        n.p.x + sw, n.p.y,
+        c.p.x + sw, c.p.y,
+        c.p.x - sw, c.p.y,
+        c.seg.color.stripe
+      );
+    }
+
+    // 障害物
+    if (c.seg.obstacles.length > 0 && !c.seg.obstacles[0].hit) {
+      const obs = c.seg.obstacles[0];
+      const ox  = c.p.x + obs.x * c.p.w;
+      const oy  = c.p.y;
+      const sz  = Math.max(10, c.p.w * 0.18);
+      ctx.font = `${sz}px serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(obs.type, ox, oy);
+
+      // 衝突判定
+      if (i < 4) {
+        const dist = Math.abs(obs.x - playerX);
+        if (dist < 0.3) {
+          obs.hit = true;
+          hitObstacle();
+        }
+      }
+    }
+  }
+
+  // 地平線グロー
+  const grd = ctx.createLinearGradient(0, HORIZON-20, 0, HORIZON+20);
+  grd.addColorStop(0, 'rgba(0,229,255,0)');
+  grd.addColorStop(0.5,'rgba(0,229,255,0.15)');
+  grd.addColorStop(1, 'rgba(0,229,255,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, HORIZON-20, W, 40);
+
+  // 自機
+  drawPlayer();
+}
+
+function drawTrapezoid(x1,y1,x2,y2,x3,y3,x4,y4, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.lineTo(x3,y3); ctx.lineTo(x4,y4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ── 宇宙背景 ──
+let stars = [];
+(function(){
+  for(let i=0;i<120;i++){
+    stars.push({
+      x: Math.random()*W,
+      y: Math.random()*HORIZON,
+      r: Math.random()*1.8+0.3,
+      a: Math.random(),
+      da: (Math.random()-0.5)*0.02,
+    });
+  }
+})();
+
+let nebula = { hue: 260 };
+
+function drawSpace() {
+  // グラデーション空
+  const sky = ctx.createLinearGradient(0,0,0,HORIZON);
+  sky.addColorStop(0,   '#020108');
+  sky.addColorStop(0.5, '#0a0230');
+  sky.addColorStop(1,   '#1a0460');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,W,HORIZON);
+
+  // 星雲
+  nebula.hue = (nebula.hue + 0.1) % 360;
+  const nb = ctx.createRadialGradient(W*0.7, HORIZON*0.3, 0, W*0.7, HORIZON*0.3, W*0.5);
+  nb.addColorStop(0, `hsla(${nebula.hue},80%,50%,0.06)`);
+  nb.addColorStop(1, 'transparent');
+  ctx.fillStyle = nb;
+  ctx.fillRect(0,0,W,HORIZON);
+
+  // 星
+  stars.forEach(s => {
+    s.a = Math.max(0.1, Math.min(1, s.a + s.da));
+    if(Math.random()<0.01) s.da *= -1;
+    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // 惑星
+  const pg = ctx.createRadialGradient(W*0.15, HORIZON*0.25, 2, W*0.15, HORIZON*0.25, 28);
+  pg.addColorStop(0, '#8833ff');
+  pg.addColorStop(0.6, '#4400cc');
+  pg.addColorStop(1, '#220066');
+  ctx.fillStyle = pg;
+  ctx.beginPath();
+  ctx.arc(W*0.15, HORIZON*0.25, 28, 0, Math.PI*2);
+  ctx.fill();
+  // リング
+  ctx.strokeStyle = 'rgba(136,51,255,0.4)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(W*0.15, HORIZON*0.25, 44, 10, -0.3, 0, Math.PI*2);
+  ctx.stroke();
+}
+
+// ── 自機描画 ──
+let hitFlash = 0;
+
+function drawPlayer() {
+  const px = W/2 + playerX * W * 0.35;
+  const py = H - 80;
+
+  ctx.save();
+  if (hitFlash > 0) {
+    ctx.globalAlpha = hitFlash % 4 < 2 ? 0.3 : 1.0;
+    hitFlash--;
+  }
+
+  // エンジングロー
+  const boost = keys.accel;
+  if (boost) {
+    const gl = ctx.createRadialGradient(px, py+30, 0, px, py+30, 50);
+    gl.addColorStop(0, 'rgba(0,229,255,0.5)');
+    gl.addColorStop(1, 'transparent');
+    ctx.fillStyle = gl;
+    ctx.fillRect(px-50, py-10, 100, 80);
+  }
+
+  // 機体
+  // メインボディ
+  ctx.fillStyle = '#0a0040';
+  ctx.beginPath();
+  ctx.moveTo(px, py-30);
+  ctx.lineTo(px-28, py+20);
+  ctx.lineTo(px-18, py+28);
+  ctx.lineTo(px+18, py+28);
+  ctx.lineTo(px+28, py+20);
+  ctx.closePath();
+  ctx.fill();
+
+  // コックピット
+  const cg = ctx.createRadialGradient(px, py-10, 2, px, py-10, 16);
+  cg.addColorStop(0, '#00e5ff');
+  cg.addColorStop(0.5, '#4400cc');
+  cg.addColorStop(1, '#0a0040');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.ellipse(px, py-8, 12, 16, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // ウィング（左）
+  ctx.fillStyle = '#1a0060';
+  ctx.beginPath();
+  ctx.moveTo(px-18, py+10);
+  ctx.lineTo(px-50, py+24);
+  ctx.lineTo(px-42, py+32);
+  ctx.lineTo(px-18, py+24);
+  ctx.closePath();
+  ctx.fill();
+
+  // ウィング（右）
+  ctx.beginPath();
+  ctx.moveTo(px+18, py+10);
+  ctx.lineTo(px+50, py+24);
+  ctx.lineTo(px+42, py+32);
+  ctx.lineTo(px+18, py+24);
+  ctx.closePath();
+  ctx.fill();
+
+  // エンジン炎
+  const flames = boost
+    ? [{ x: px-10, len: 30+Math.random()*20 }, { x: px+10, len: 30+Math.random()*20 }]
+    : [{ x: px-10, len: 12 }, { x: px+10, len: 12 }];
+
+  flames.forEach(f => {
+    const fg = ctx.createLinearGradient(f.x, py+28, f.x, py+28+f.len);
+    fg.addColorStop(0, boost ? '#00ffff' : '#ff3aaa');
+    fg.addColorStop(0.5, boost ? '#8833ff' : '#ff8800');
+    fg.addColorStop(1, 'transparent');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.moveTo(f.x-5, py+28);
+    ctx.lineTo(f.x+5, py+28);
+    ctx.lineTo(f.x+2, py+28+f.len);
+    ctx.lineTo(f.x-2, py+28+f.len);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // ネオンライン
+  ctx.strokeStyle = boost ? '#00e5ff' : '#8833ff';
+  ctx.lineWidth   = 1.5;
+  ctx.shadowColor = boost ? '#00e5ff' : '#8833ff';
+  ctx.shadowBlur  = 8;
+  ctx.beginPath();
+  ctx.moveTo(px, py-30);
+  ctx.lineTo(px-28, py+20);
+  ctx.moveTo(px, py-30);
+  ctx.lineTo(px+28, py+20);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.restore();
+}
+
+// ── ゲームループ ──
+let lastTime = 0;
+let curvePull = 0;
+
+function gameLoop(ts) {
+  if (!running) return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+
+  // 入力（ジャイロ or タップ）
+  let steer = tilt * 2;
+  if (keys.left)  steer -= 1;
+  if (keys.right) steer += 1;
+
+  // 加速
+  if (keys.accel) {
+    speed = Math.min(MAX_SPEED, speed + ACCEL * 2);
+  } else {
+    speed = Math.max(0, speed - DECEL);
+    if (speed < 40) speed += ACCEL * 0.5;
+  }
+
+  // 自然加速
+  speed = Math.min(MAX_SPEED * 0.6, speed + ACCEL * 0.3);
+
+  // ステアリング
+  playerX += steer * TURN_SPD * (speed / MAX_SPEED);
+  playerX = Math.max(-1, Math.min(1, playerX));
+
+  // コースカーブによる引き
+  const segIdx = Math.floor(pos / SEG_LEN) % SEG_COUNT;
+  curvePull += (segments[segIdx].curve * 0.004 - curvePull) * 0.1;
+  playerX += curvePull * (speed / MAX_SPEED);
+
+  // コース外
+  if (Math.abs(playerX) > 0.95) {
+    speed = Math.max(0, speed - 8);
+    playSound('offroad');
+  }
+
+  // 移動
+  pos += speed * dt * 60;
+
+  // スコア
+  score += Math.floor(speed * dt * 0.5);
+  if (speed > maxSpeed) maxSpeed = speed;
+
+  // ラップ判定
+  const totalLen = SEG_COUNT * SEG_LEN;
+  if (pos >= totalLen * lap) {
+    lap++;
+    if (lap > maxLaps) {
+      endRace();
+      return;
+    }
+    playSound('lap');
+    updateSpeech('lapClear');
+  }
+
+  // HUD更新
+  document.getElementById('speedVal').textContent = Math.floor(speed);
+  document.getElementById('scoreVal').textContent = score.toLocaleString();
+  document.getElementById('lapVal').textContent   = `${Math.min(lap,maxLaps)}/${maxLaps}`;
+  document.getElementById('speedBar').style.width = (speed/MAX_SPEED*100) + '%';
+
+  draw();
+  frameId = requestAnimationFrame(gameLoop);
+}
+
+// ── 障害物ヒット ──
+function hitObstacle() {
+  speed = Math.max(0, speed - 60);
+  hitFlash = 20;
+  playSound('hit');
+  updateSpeech('hit');
+}
+
+// ── ゲーム開始 ──
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  segments  = buildSegments();
+  pos       = 0;
+  speed     = 40;
+  playerX   = 0;
+  score     = 0;
+  lap       = 1;
+  maxSpeed  = 0;
+  hitFlash  = 0;
+  curvePull = 0;
+  running   = true;
+  lastTime  = performance.now();
+  updateSpeech('start');
+  if (frameId) cancelAnimationFrame(frameId);
+  frameId = requestAnimationFrame(gameLoop);
+  setupGyro();
+}
+
+// ── レース終了 ──
+function endRace() {
+  running = false;
+  cancelAnimationFrame(frameId);
+  if (score > best) { best = score; localStorage.setItem('cosmo_race_best', best); }
+  playSound('finish');
+  updateSpeech('finish');
+
+  setTimeout(() => {
+    document.getElementById('ovTitle').textContent = 'FINISH!';
+    document.getElementById('ovSub').innerHTML =
+      `レース終了！<br>最高速度：<b style="color:#ffe040">${Math.floor(maxSpeed)}</b> km/h`;
+    document.getElementById('ovStats').style.display = 'flex';
+    document.getElementById('ovScore').textContent = score.toLocaleString();
+    document.getElementById('ovBest').textContent  = best.toLocaleString();
+    document.getElementById('ovMaxSpd').textContent = Math.floor(maxSpeed);
+    document.querySelector('.start-btn').textContent = '★ RETRY ★';
+    document.getElementById('overlay').style.display = 'flex';
+  }, 600);
+}
+
+// ── パイロットセリフ ──
+const speeches = {
+  start:    ['レッツゴー！','コスモ全開！','行くよ〜！'],
+  hit:      ['きゃっ！','くっ…！','あぶない！'],
+  lapClear: ['ナイスラップ！','もう一周！','いい感じ！'],
+  finish:   ['やったー！','完走だ！','お疲れ様！'],
+};
+
+function updateSpeech(key) {
+  const list = speeches[key];
+  document.getElementById('pilotSpeech').textContent =
+    list[Math.floor(Math.random()*list.length)];
+}
+
+// ── ジャイロ ──
+function setupGyro() {
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().then(r => {
+      if (r === 'granted') listenGyro();
+    }).catch(() => {});
+  } else {
+    listenGyro();
+  }
+}
+
+function listenGyro() {
+  window.addEventListener('deviceorientation', e => {
+    if (e.gamma !== null) {
+      tilt = Math.max(-1, Math.min(1, e.gamma / 30));
+    }
+  }, true);
+}
+
+// ── キーボード（PC用） ──
+document.addEventListener('keydown', e => {
+  if (e.key==='ArrowLeft')  keys.left  = true;
+  if (e.key==='ArrowRight') keys.right = true;
+  if (e.key==='ArrowUp' || e.key===' ') keys.accel = true;
+});
+document.addEventListener('keyup', e => {
+  if (e.key==='ArrowLeft')  keys.left  = false;
+  if (e.key==='ArrowRight') keys.right = false;
+  if (e.key==='ArrowUp' || e.key===' ') keys.accel = false;
+});
+
+// ── サウンド ──
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudio();
+    const now = ctx.currentTime;
+
+    if (type === 'hit') {
+      const buf = ctx.createBuffer(1, ctx.sampleRate*0.15, ctx.sampleRate);
+      const d   = buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * (1-i/d.length);
+      const s = ctx.createBufferSource();
+      const g = ctx.createGain();
+      s.buffer = buf;
+      g.gain.setValueAtTime(0.3, now);
+      s.connect(g); g.connect(ctx.destination);
+      s.start();
+
+    } else if (type === 'offroad') {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type  = 'sawtooth';
+      osc.frequency.value = 80;
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now+0.1);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(now); osc.stop(now+0.12);
+
+    } else if (type === 'lap') {
+      [523,659,784,1047].forEach((f,i) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.type  = 'triangle';
+        osc.frequency.value = f;
+        g.gain.setValueAtTime(0, now+i*0.1);
+        g.gain.linearRampToValueAtTime(0.2, now+i*0.1+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now+i*0.1+0.2);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(now+i*0.1); osc.stop(now+i*0.1+0.25);
+      });
+
+    } else if (type === 'finish') {
+      [523,659,784,659,784,1047].forEach((f,i) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.type  = 'sine';
+        osc.frequency.value = f;
+        g.gain.setValueAtTime(0, now+i*0.12);
+        g.gain.linearRampToValueAtTime(0.22, now+i*0.12+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now+i*0.12+0.25);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(now+i*0.12); osc.stop(now+i*0.12+0.28);
+      });
+    }
+  } catch(e) {}
+}
+
+// 初期描画
+draw();
+</script>
+</body>
+</html>
